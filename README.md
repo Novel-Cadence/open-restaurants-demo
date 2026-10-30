@@ -1,2 +1,2 @@
 # open-restaurants-demo
-temporary repo for BYUB demo app
+temporary repo for demo app
