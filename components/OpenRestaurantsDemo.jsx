@@ -1,13 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import AboutPanel from "./AboutPanel";
+import DayTimeline from "./DayTimeline";
+import QueryPresets from "./QueryPresets";
+import WeeklyHeatmap from "./WeeklyHeatmap";
+import {
+  DAY_LABELS,
+  DAY_NAMES,
+  getDayTimeline,
+  hourlyOpenCountTable,
+} from "../lib/hours";
 import {
   getOpenRestaurantRows,
   isIsoDate,
+  nextDateForWeekday,
   normalizeTime,
   nowParts,
   resolveQueryParams,
   restaurants,
+  weekdayIndex,
 } from "../lib/query";
 
 /**
@@ -25,31 +37,55 @@ function writeQueryToUrl(date, time) {
   }
 }
 
+function subscribeNoop() {
+  return () => {};
+}
+
+function useClientReady() {
+  return useSyncExternalStore(subscribeNoop, () => true, () => false);
+}
+
 const fieldClassName =
   "h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-base text-zinc-950 [color-scheme:light] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:[color-scheme:dark] dark:focus-visible:outline-zinc-100";
 
 export default function OpenRestaurantsDemo() {
-  const [query, setQuery] = useState(null);
+  const ready = useClientReady();
+  const [override, setOverride] = useState(null);
+  const [nameFilter, setNameFilter] = useState("");
+  const query = useMemo(() => {
+    if (!ready) return null;
+    if (override) return override;
+    return resolveQueryParams(window.location.search, nowParts());
+  }, [ready, override]);
 
   useEffect(() => {
-    const resolved = resolveQueryParams(window.location.search, nowParts());
-    setQuery(resolved);
-    writeQueryToUrl(resolved.date, resolved.time);
-  }, []);
+    if (!query) return;
+    writeQueryToUrl(query.date, query.time);
+  }, [query]);
 
   /**
    * @param {{ date: string, time: string }} next
    */
   function commit(next) {
-    setQuery(next);
-    writeQueryToUrl(next.date, next.time);
+    setOverride(next);
   }
 
   const rows = query ? getOpenRestaurantRows(restaurants, query) : null;
+  const needle = nameFilter.toLowerCase();
+  const visibleRows = rows
+    ? needle
+      ? rows.filter((row) => row.name.toLowerCase().includes(needle))
+      : rows
+    : null;
+  const selectedDay = query ? weekdayIndex(query.date) : null;
+  const selectedHour = query ? Number(query.time.slice(0, 2)) : null;
+  const selectedMinutes = query
+    ? Number(query.time.slice(0, 2)) * 60 + Number(query.time.slice(3))
+    : 0;
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-black dark:text-zinc-50">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14">
         <header className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">
             Open restaurants finder
@@ -103,32 +139,84 @@ export default function OpenRestaurantsDemo() {
           </button>
         </form>
 
-        {rows ? (
-          <section aria-live="polite">
-            <h2 className="text-lg font-medium">
+        <QueryPresets
+          date={query?.date ?? null}
+          disabled={!query}
+          onSelect={commit}
+        />
+
+        <WeeklyHeatmap
+          counts={hourlyOpenCountTable}
+          dayLabels={DAY_LABELS}
+          selectedDay={selectedDay}
+          selectedHour={selectedHour}
+          disabled={!query}
+          onSelect={(day, hour) => {
+            if (!query) return;
+            commit({
+              date: nextDateForWeekday(query.date, day),
+              time: `${String(hour).padStart(2, "0")}:00`,
+            });
+          }}
+        />
+
+        {rows && visibleRows ? (
+          <section aria-labelledby="open-count-heading">
+            <h2
+              id="open-count-heading"
+              aria-live="polite"
+              className="text-lg font-medium"
+            >
               {rows.length} of {restaurants.length} restaurants open
             </h2>
-            {rows.length === 0 ? (
-              <p className="mt-3 text-zinc-600 dark:text-zinc-400">
-                No restaurants are open at this time.
-              </p>
-            ) : (
-              <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-800">
-                {rows.map((row) => (
-                  <li
-                    key={row.name}
-                    className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
-                  >
-                    <span className="font-medium">{row.name}</span>
-                    <span className="shrink-0 text-sm text-zinc-600 dark:text-zinc-400">
-                      closes at {row.closesAt}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <label className="mt-3 flex max-w-md flex-col gap-1 text-sm font-medium">
+              Filter by name
+              <input
+                type="search"
+                value={nameFilter}
+                onChange={(event) => setNameFilter(event.target.value)}
+                placeholder="Restaurant name"
+                autoComplete="off"
+                className={fieldClassName}
+              />
+            </label>
+            <div aria-live="polite">
+              {rows.length === 0 ? (
+                <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+                  No restaurants are open at this time.
+                </p>
+              ) : visibleRows.length === 0 ? (
+                <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+                  No restaurants match that name.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {visibleRows.map((row) => (
+                    <li
+                      key={row.name}
+                      className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
+                    >
+                      <span className="font-medium">{row.name}</span>
+                      <span className="shrink-0 text-sm text-zinc-600 dark:text-zinc-400">
+                        closes at {row.closesAt}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         ) : null}
+
+        {query ? (
+          <DayTimeline
+            dayName={DAY_NAMES[weekdayIndex(query.date)]}
+            minutes={selectedMinutes}
+            rows={getDayTimeline(restaurants, query.date)}
+          />
+        ) : null}
+
+        <AboutPanel />
       </div>
     </main>
   );
