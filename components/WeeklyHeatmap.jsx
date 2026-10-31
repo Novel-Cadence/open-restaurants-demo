@@ -1,7 +1,15 @@
+/**
+ * Week grid of how many restaurants are open at the start of each hour.
+ * Shade scales with that count relative to the busiest hour. Choosing a
+ * cell sets the query to that weekday and hour.
+ */
+
 import { heatmapCellLabel } from "../lib/hours";
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
+// Index 0 is the empty color. Later steps run from a single open restaurant
+// up to the busiest hour in the week.
 const SHADE = [
   "bg-zinc-200 dark:bg-zinc-800",
   "bg-emerald-100 dark:bg-emerald-950",
@@ -23,6 +31,9 @@ function compactHour(hour) {
 }
 
 /**
+ * Shade step for one cell. Math.max(1, ...) keeps any non-zero count off the
+ * empty color, so a single open restaurant stays visible when another hour
+ * is much busier.
  * @param {number} count
  * @param {number} max
  * @returns {string}

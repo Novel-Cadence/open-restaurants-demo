@@ -1,3 +1,8 @@
+/**
+ * Page for which restaurants are open, plus the week and day charts.
+ * Holds the date and time query: from the URL, or the time at page load, until the user picks one.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -23,6 +28,9 @@ import {
 } from "../lib/query";
 
 /**
+ * Writes the query into the address bar. replaceState keeps that URL
+ * bookmarkable without a history entry on every change, and skips the write
+ * when the URL is already the same.
  * @param {string} date
  * @param {string} time
  */
@@ -37,10 +45,14 @@ function writeQueryToUrl(date, time) {
   }
 }
 
+// Nothing to subscribe to: the snapshot is fixed for the life of the page.
 function subscribeNoop() {
   return () => {};
 }
 
+// "now" and the URL exist only in the browser. The server snapshot is false
+// and the client snapshot is true, so time-dependent output waits for the
+// client and the server HTML does not disagree with the first client render.
 function useClientReady() {
   return useSyncExternalStore(subscribeNoop, () => true, () => false);
 }
@@ -48,8 +60,15 @@ function useClientReady() {
 const fieldClassName =
   "h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-base text-zinc-950 [color-scheme:light] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:[color-scheme:dark] dark:focus-visible:outline-zinc-100";
 
+/**
+ * Date and time query with URL-backed state. On load the query comes from the
+ * URL's date and time, falling back to the current local time for a missing or
+ * invalid value. Picking a time, a preset, a heatmap cell or Now replaces it.
+ * The active query is always written back to the URL.
+ */
 export default function OpenRestaurantsDemo() {
   const ready = useClientReady();
+  // null: use the URL query, or the time at page load. Otherwise the user's choice.
   const [override, setOverride] = useState(null);
   const [nameFilter, setNameFilter] = useState("");
   const query = useMemo(() => {
@@ -64,6 +83,7 @@ export default function OpenRestaurantsDemo() {
   }, [query]);
 
   /**
+   * Stores the date and time the user chose (including a Now snapshot) as the active query.
    * @param {{ date: string, time: string }} next
    */
   function commit(next) {

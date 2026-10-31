@@ -1,8 +1,16 @@
+/**
+ * Buttons that jump the query to times on the edges of the weekly schedule.
+ * `day` is Monday = 0, the same index as the minute-of-week model.
+ */
+
 import { nextDateForWeekday } from "../lib/query";
 
 const PRESETS = [
+  // Overnight close: Friday night, still inside hours that run past midnight.
   { label: "Late Friday", day: 4, time: "23:45", detail: "11:45 pm" },
+  // Sunday→Monday wrap, one minute before an exclusive closing minute.
   { label: "Monday after midnight", day: 0, time: "01:59", detail: "1:59 am" },
+  // Empty hour: no restaurant is open.
   { label: "Early Sunday morning", day: 6, time: "05:00", detail: "5:00 am" },
 ];
 

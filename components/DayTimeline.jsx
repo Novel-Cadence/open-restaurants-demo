@@ -1,3 +1,8 @@
+/**
+ * Bars for when each restaurant is open on one local day.
+ * An interval that began the previous night is included, clipped at midnight.
+ */
+
 import { formatClock } from "../lib/query";
 
 const TICKS = [
@@ -80,6 +85,7 @@ export default function DayTimeline({ dayName, minutes, rows }) {
                       {row.name}
                     </span>
                     <div className="relative h-4">
+                      {/* 1440 units across: one per minute of the local day. */}
                       <svg
                         viewBox="0 0 1440 16"
                         preserveAspectRatio="none"
