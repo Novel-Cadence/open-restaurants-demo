@@ -104,7 +104,8 @@ export default function DayTimeline({ dayName, minutes, rows }) {
                             y="3"
                             width={segment.end - segment.start}
                             height="10"
-                            className="fill-emerald-800 dark:fill-emerald-300"
+                            // Royal blue on the light track, light blue on the dark track.
+                            className="fill-[#0062B8] dark:fill-blue-300"
                           />
                         ))}
                       </svg>

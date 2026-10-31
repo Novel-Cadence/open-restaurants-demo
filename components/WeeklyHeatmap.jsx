@@ -8,17 +8,29 @@ import { heatmapCellLabel } from "../lib/hours";
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
-// Index 0 is the empty color. Later steps run from a single open restaurant
-// up to the busiest hour in the week.
+// Index 0 is an empty hour: no restaurant is open. It stays neutral zinc.
+// Steps 1–6 are one blue scale. Light mode runs from a light blue through
+// royal blue to navy at step 6, so a busier hour is darker.
+// Dark mode reverses that: a busier hour is lighter, up to a light blue.
+// The empty cell is dark in that mode, and a navy fill would blend into it,
+// so lightness rises with the count to keep every step distinct from empty.
 const SHADE = [
   "bg-zinc-200 dark:bg-zinc-800",
-  "bg-emerald-100 dark:bg-emerald-950",
-  "bg-emerald-200 dark:bg-emerald-900",
-  "bg-emerald-300 dark:bg-emerald-800",
-  "bg-emerald-400 dark:bg-emerald-700",
-  "bg-emerald-600 dark:bg-emerald-500",
-  "bg-emerald-800 dark:bg-emerald-300",
+  "bg-[#2E7FD8] dark:bg-[#0079E1]",
+  "bg-[#1B71C8] dark:bg-[#2D89E7]",
+  "bg-[#0062B8] dark:bg-[#4898EE]",
+  "bg-[#005098] dark:bg-[#60A7F4]",
+  "bg-[#003F7A] dark:bg-[#77B6F9]",
+  "bg-[#002E5D] dark:bg-blue-300",
 ];
+
+// Light zinc clears the darkest step. Dark zinc clears the empty cell and
+// the light-blue steps. The same pair works in both modes: dark mode's
+// busiest step is the light one.
+const CELL_FOCUS =
+  "focus-visible:z-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-100 focus-visible:shadow-[0_0_0_1px_#18181b] disabled:opacity-60";
+const CELL_SELECTED =
+  "z-10 ring-2 ring-zinc-100 ring-offset-1 ring-offset-zinc-900";
 
 /**
  * @param {number} hour
@@ -115,10 +127,8 @@ export default function WeeklyHeatmap({
                     aria-current={selected ? "true" : undefined}
                     title={label}
                     onClick={() => onSelect(day, hour)}
-                    className={`h-8 w-full rounded-sm focus-visible:z-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:opacity-60 dark:focus-visible:outline-zinc-100 ${shadeClass(count, maxCount)} ${
-                      selected
-                        ? "z-10 ring-2 ring-zinc-950 ring-offset-1 ring-offset-zinc-50 dark:ring-zinc-50 dark:ring-offset-black"
-                        : ""
+                    className={`h-8 w-full rounded-sm ${CELL_FOCUS} ${shadeClass(count, maxCount)} ${
+                      selected ? CELL_SELECTED : ""
                     }`}
                   />
                 );
